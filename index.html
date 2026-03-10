@@ -114,17 +114,25 @@
                     <div class="grid grid-cols-2 gap-3">
                          <button id="randomize" class="bg-green-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-600">랜덤 배치</button>
                          <button id="swap-mode" class="bg-orange-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-orange-600">자리 바꾸기</button>
-                         <button id="save" class="bg-blue-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-600">저장</button>
-                         <button id="load" class="bg-gray-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-gray-600">불러오기</button>
+                         
+                         <div class="col-span-2 space-y-2 border-t pt-3 mt-1">
+                             <div class="flex gap-2 text-xs font-semibold text-slate-600 mb-1">
+                                 <label class="flex items-center"><input type="radio" name="order-direction" value="horizontal" checked class="mr-1"> 가로방향</label>
+                                 <label class="flex items-center"><input type="radio" name="order-direction" value="vertical" class="mr-1"> 세로방향</label>
+                             </div>
+                             <button id="order-by-number" class="w-full bg-indigo-400 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-500">번호순 자리배치</button>
+                         </div>
+
+                         <button id="save" class="bg-blue-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-600 mt-2">저장</button>
+                         <button id="load" class="bg-gray-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-gray-600 mt-2">불러오기</button>
                          <button id="export-pdf" class="col-span-2 bg-purple-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-purple-600">PDF로 내보내기</button>
-                         <button id="save-cloud" class="col-span-2 mt-3 bg-cyan-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-cyan-600">클라우드에 저장</button>
                     </div>
                     <input type="file" id="load-file-input" class="hidden" accept=".txt">
                     <div class="mt-3 flex items-center justify-center">
                         <input type="checkbox" id="teacher-view-checkbox" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
                         <label for="teacher-view-checkbox" class="ml-2 block text-sm text-slate-700 font-medium">교사 시점 (상하좌우 반전)</label>
                     </div>
-                     <div id="status-message" class="mt-4 text-sm text-red-600 font-medium"></div>
+                     <div id="status-message" class="mt-4 text-sm font-medium text-slate-600 h-6"></div>
                 </aside>
 
                 <!-- 자리 배치도 -->
@@ -197,7 +205,7 @@
                      <!-- 뽑힌 학생 명단 표시 영역 -->
                     <div class="mt-4 border-t pt-4">
                         <h4 class="font-bold text-center text-slate-600 mb-2">뽑힌 학생 명단</h4>
-                        <div id="picked-presenters-list" class="text-center text-sm text-slate-500 space-y-1">
+                        <div id="picked-presenters-list" class="text-center text-sm text-slate-500 flex flex-wrap justify-center gap-2">
                             <p>아직 뽑힌 학생이 없습니다.</p>
                         </div>
                     </div>
@@ -210,9 +218,10 @@
     <script>
         const { jsPDF } = window.jspdf;
 
-        // --- 전역 상태 변수 ---
+        // --- 전역 설정 및 상태 ---
+        const apiKey = ""; // 실행 환경에서 자동으로 주입됩니다.
         let students = [];
-        let seatAssignments = []; // [ { studentIndex: null }, ... ]
+        let seatAssignments = []; 
         let isSwapMode = false;
         let firstSelection = null;
         let availableForPicking = [];
@@ -224,29 +233,25 @@
         const menuSeating = document.getElementById('menu-seating');
         const menuDaily = document.getElementById('menu-daily');
         const menuPicker = document.getElementById('menu-picker');
-
         const seatingSection = document.getElementById('seating-chart-section');
         const dailySection = document.getElementById('daily-word-section');
         const pickerSection = document.getElementById('random-picker-section');
-        
         const fileInput = document.getElementById('student-file');
         const totalSeatsInput = document.getElementById('total-seats');
         const colsInput = document.getElementById('cols');
         const applySettingsBtn = document.getElementById('apply-settings');
         const randomizeBtn = document.getElementById('randomize');
         const swapModeBtn = document.getElementById('swap-mode');
+        const orderByNumberBtn = document.getElementById('order-by-number');
         const saveBtn = document.getElementById('save');
         const loadBtn = document.getElementById('load');
         const loadFileInput = document.getElementById('load-file-input');
         const exportPdfBtn = document.getElementById('export-pdf');
-        const saveCloudBtn = document.getElementById('save-cloud');
         const grid = document.getElementById('seating-chart-grid');
         const statusMessage = document.getElementById('status-message');
-
         const getRecommendationBtn = document.getElementById('get-recommendation');
         const recommendationContent = document.getElementById('recommendation-content');
         const loadingSpinner = document.getElementById('loading-spinner');
-
         const groupCountInput = document.getElementById('group-count');
         const formGroupsBtn = document.getElementById('form-groups-btn');
         const groupShuffleBox = document.getElementById('group-shuffle-box');
@@ -255,7 +260,6 @@
         const loadGroupsBtn = document.getElementById('load-groups-btn');
         const loadGroupsInput = document.getElementById('load-groups-input');
         const exportGroupsPdfBtn = document.getElementById('export-groups-pdf');
-
         const pickPresenterBtn = document.getElementById('pick-presenter-btn');
         const excludePickedCheckbox = document.getElementById('exclude-picked-checkbox');
         const resetPresenterListBtn = document.getElementById('reset-presenter-list');
@@ -265,28 +269,14 @@
 
         // --- 메뉴 전환 로직 ---
         function switchView(view) {
-            seatingSection.classList.add('hidden');
-            dailySection.classList.add('hidden');
-            pickerSection.classList.add('hidden');
-            
-            menuSeating.classList.replace('bg-indigo-500', 'bg-white');
-            menuSeating.classList.replace('text-white', 'text-indigo-500');
-            menuDaily.classList.replace('bg-indigo-500', 'bg-white');
-            menuDaily.classList.replace('text-white', 'text-indigo-500');
-            menuPicker.classList.replace('bg-indigo-500', 'bg-white');
-            menuPicker.classList.replace('text-white', 'text-indigo-500');
+            [seatingSection, dailySection, pickerSection].forEach(s => s.classList.add('hidden'));
+            [menuSeating, menuDaily, menuPicker].forEach(m => {
+                m.classList.replace('bg-indigo-500', 'bg-white');
+                m.classList.replace('text-white', 'text-indigo-500');
+            });
 
-            let targetSection, targetMenu;
-            if (view === 'seating') {
-                targetSection = seatingSection;
-                targetMenu = menuSeating;
-            } else if (view === 'daily') {
-                targetSection = dailySection;
-                targetMenu = menuDaily;
-            } else {
-                targetSection = pickerSection;
-                targetMenu = menuPicker;
-            }
+            const targetSection = view === 'seating' ? seatingSection : view === 'daily' ? dailySection : pickerSection;
+            const targetMenu = view === 'seating' ? menuSeating : view === 'daily' ? menuDaily : menuPicker;
 
             targetSection.classList.remove('hidden');
             targetMenu.classList.replace('bg-white', 'bg-indigo-500');
@@ -297,14 +287,22 @@
         menuDaily.addEventListener('click', () => switchView('daily'));
         menuPicker.addEventListener('click', () => switchView('picker'));
 
+        // --- 공통 메시지 출력 ---
+        function showMessage(msg, colorType = 'slate') {
+            const colorMap = {
+                red: 'text-red-600',
+                green: 'text-green-600',
+                blue: 'text-blue-600',
+                slate: 'text-slate-600'
+            };
+            statusMessage.textContent = msg;
+            statusMessage.className = `mt-4 text-sm font-medium ${colorMap[colorType] || 'text-slate-600'} h-6`;
+        }
 
         // --- 자리 배치 프로그램 로직 ---
-
-        // 1. 학생 파일 읽기
         fileInput.addEventListener('change', (event) => {
             const file = event.target.files[0];
             if (!file) return;
-
             const reader = new FileReader();
             reader.onload = (e) => {
                 const text = e.target.result;
@@ -312,7 +310,7 @@
                     const [number, name] = line.split(/[,，]/).map(s => s.trim());
                     return { number, name };
                 });
-                availableForPicking = [...students]; // 랜덤 뽑기용 명단도 업데이트
+                availableForPicking = [...students];
                 pickedPresenters = [];
                 renderPickedPresenters();
                 showMessage(`학생 ${students.length}명의 명단을 불러왔습니다.`, 'green');
@@ -321,7 +319,6 @@
             reader.readAsText(file, 'UTF-8');
         });
 
-        // 2. 설정 적용 및 자리 생성
         applySettingsBtn.addEventListener('click', generateGrid);
 
         function generateGrid() {
@@ -336,7 +333,6 @@
             
             grid.innerHTML = '';
             grid.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
-            
             seatAssignments = Array(totalSeats).fill(null).map(() => ({ studentIndex: null }));
 
             for (let i = 0; i < totalSeats; i++) {
@@ -346,19 +342,16 @@
                     desk.style.marginLeft = '-1rem'; 
                     desk.style.borderLeft = 'none';
                     const prevDesk = grid.children[i-1];
-                    if (prevDesk) {
-                       prevDesk.style.borderRight = 'none';
-                    }
+                    if (prevDesk) prevDesk.style.borderRight = 'none';
                 }
                 desk.dataset.seatIndex = i;
                 desk.addEventListener('click', handleDeskClick);
                 grid.appendChild(desk);
             }
             renderSeatAssignments();
-            showMessage('자리가 생성되었습니다. 랜덤 배치를 실행하세요.', 'blue');
+            showMessage('자리가 생성되었습니다. 명단을 배치하세요.', 'blue');
         }
         
-        // 3. 자리 배치 렌더링
         function renderSeatAssignments() {
             const desks = grid.querySelectorAll('.desk');
             desks.forEach((desk, seatIndex) => {
@@ -374,36 +367,58 @@
             });
         }
 
-        // 4. 랜덤 배치
         randomizeBtn.addEventListener('click', () => {
-            if (students.length === 0) {
-                showMessage('먼저 학생 명단 파일을 업로드해주세요.', 'red');
+            if (students.length === 0 || seatAssignments.length === 0) {
+                showMessage('명단 업로드와 자리 생성이 선행되어야 합니다.', 'red');
                 return;
             }
-            if (seatAssignments.length === 0) {
-                showMessage('먼저 자리 생성을 해주세요.', 'red');
-                return;
-            }
-
-            // 학생 인덱스 배열을 섞음
             let studentIndices = students.map((_, i) => i);
             for (let i = studentIndices.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
                 [studentIndices[i], studentIndices[j]] = [studentIndices[j], studentIndices[i]];
             }
-
-            // 자리 할당 초기화 후 재할당
             seatAssignments.forEach(a => a.studentIndex = null);
-            const seatsToFill = Math.min(students.length, seatAssignments.length);
-            for (let i = 0; i < seatsToFill; i++) {
+            for (let i = 0; i < Math.min(students.length, seatAssignments.length); i++) {
                 seatAssignments[i].studentIndex = studentIndices[i];
             }
-            
             renderSeatAssignments();
             showMessage('자리를 랜덤으로 배치했습니다.', 'green');
         });
 
-        // 5. 자리 바꾸기
+        orderByNumberBtn.addEventListener('click', () => {
+            if (students.length === 0 || seatAssignments.length === 0) {
+                showMessage('명단 업로드와 자리 생성이 선행되어야 합니다.', 'red');
+                return;
+            }
+            const direction = document.querySelector('input[name="order-direction"]:checked').value;
+            const cols = parseInt(colsInput.value, 10);
+            const totalSeats = seatAssignments.length;
+            const rows = Math.ceil(totalSeats / cols);
+            const sortedIndices = [...students]
+                .sort((a, b) => parseInt(a.number) - parseInt(b.number))
+                .map(s => students.indexOf(s));
+
+            seatAssignments.forEach(a => a.studentIndex = null);
+
+            if (direction === 'horizontal') {
+                for (let i = 0; i < sortedIndices.length && i < totalSeats; i++) {
+                    seatAssignments[i].studentIndex = sortedIndices[i];
+                }
+            } else {
+                let currentIdx = 0;
+                for (let c = 0; c < cols; c++) {
+                    for (let r = 0; r < rows; r++) {
+                        const seatIdx = r * cols + c;
+                        if (seatIdx < totalSeats && currentIdx < sortedIndices.length) {
+                            seatAssignments[seatIdx].studentIndex = sortedIndices[currentIdx++];
+                        }
+                    }
+                }
+            }
+            renderSeatAssignments();
+            showMessage(`번호순(${direction === 'horizontal' ? '가로' : '세로'}) 배치 완료.`, 'green');
+        });
+
         swapModeBtn.addEventListener('click', () => {
             isSwapMode = !isSwapMode;
             if (isSwapMode) {
@@ -413,43 +428,34 @@
             } else {
                 swapModeBtn.classList.remove('ring-4', 'ring-orange-300');
                 swapModeBtn.textContent = '자리 바꾸기';
-                if (firstSelection) {
-                    firstSelection.classList.remove('selected');
-                    firstSelection = null;
-                }
-                showMessage('', 'red');
+                if (firstSelection) firstSelection.classList.remove('selected');
+                firstSelection = null;
+                showMessage('', 'slate');
             }
         });
 
         function handleDeskClick(event) {
             if (!isSwapMode) return;
             const clickedDesk = event.currentTarget;
-
             if (!firstSelection) {
                 firstSelection = clickedDesk;
                 firstSelection.classList.add('selected');
                 showMessage('바뀔 두 번째 자리를 선택하세요.', 'blue');
             } else {
-                if (firstSelection === clickedDesk) { // 같은 자리 선택 시 취소
+                if (firstSelection === clickedDesk) { 
                     firstSelection.classList.remove('selected');
                     firstSelection = null;
-                    showMessage('자리 선택이 취소되었습니다. 다시 선택하세요.', 'blue');
+                    showMessage('자리 선택 취소.', 'slate');
                     return;
                 }
-
                 const firstSeatIndex = parseInt(firstSelection.dataset.seatIndex, 10);
                 const secondSeatIndex = parseInt(clickedDesk.dataset.seatIndex, 10);
-
-                // seatAssignments에서 학생 인덱스 교환
-                const tempStudentIndex = seatAssignments[firstSeatIndex].studentIndex;
+                const temp = seatAssignments[firstSeatIndex].studentIndex;
                 seatAssignments[firstSeatIndex].studentIndex = seatAssignments[secondSeatIndex].studentIndex;
-                seatAssignments[secondSeatIndex].studentIndex = tempStudentIndex;
-
+                seatAssignments[secondSeatIndex].studentIndex = temp;
                 renderSeatAssignments();
-                
                 firstSelection.classList.remove('selected');
                 firstSelection = null;
-                
                 isSwapMode = false;
                 swapModeBtn.classList.remove('ring-4', 'ring-orange-300');
                 swapModeBtn.textContent = '자리 바꾸기';
@@ -457,188 +463,103 @@
             }
         }
 
-        // 6. 저장 및 불러오기
         saveBtn.addEventListener('click', () => {
             if (students.length === 0 || seatAssignments.length === 0) {
                 showMessage('저장할 데이터가 없습니다.', 'red');
                 return;
             }
-
-            // 1. 메타 데이터
-            const metaData = `#META\ntotalSeats:${totalSeatsInput.value}\ncols:${colsInput.value}\nlayoutType:${document.querySelector('input[name="layout-type"]:checked').value}`;
-            // 2. 학생 명단
+            const meta = `#META\ntotalSeats:${totalSeatsInput.value}\ncols:${colsInput.value}\nlayoutType:${document.querySelector('input[name="layout-type"]:checked').value}`;
             const studentData = '#STUDENTS\n' + students.map(s => `${s.number},${s.name}`).join('\n');
-            // 3. 자리 배정 정보
             const assignmentData = '#ASSIGNMENTS\n' + seatAssignments.map((a, i) => `${i},${a.studentIndex}`).join('\n');
-            const fileContent = `${metaData}\n\n${studentData}\n\n${assignmentData}`;
-
-            const blob = new Blob([fileContent], { type: 'text/plain;charset=utf-8' });
-
+            const blob = new Blob([`${meta}\n\n${studentData}\n\n${assignmentData}`], { type: 'text/plain;charset=utf-8' });
             const today = new Date();
-            const yyyy = today.getFullYear();
-            const mm = String(today.getMonth() + 1).padStart(2, '0');
-            const dd = String(today.getDate()).padStart(2, '0');
-            const fileName = `${yyyy}${mm}${dd}.txt`;
-
+            const fileName = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}.txt`;
             const link = document.createElement('a');
             link.href = URL.createObjectURL(blob);
             link.download = fileName;
-            document.body.appendChild(link);
             link.click();
-            document.body.removeChild(link);
-
             showMessage('자리 배치를 파일로 저장했습니다.', 'green');
         });
         
-        loadBtn.addEventListener('click', () => {
-            loadFileInput.click();
-        });
+        loadBtn.addEventListener('click', () => loadFileInput.click());
 
         loadFileInput.addEventListener('change', (event) => {
             const file = event.target.files[0];
             if (!file) return;
-
             const reader = new FileReader();
             reader.onload = (e) => {
                 try {
-                    const text = e.target.result;
-                    const lines = text.split('\n').map(l => l.trim());
+                    const lines = e.target.result.split('\n').map(l => l.trim());
+                    const metaIdx = lines.indexOf('#META');
+                    const studIdx = lines.indexOf('#STUDENTS');
+                    const assIdx = lines.indexOf('#ASSIGNMENTS');
+                    if (metaIdx === -1 || studIdx === -1 || assIdx === -1) throw new Error('파일 형식이 맞지 않습니다.');
 
-                    const metaIndex = lines.findIndex(l => l === '#META');
-                    const studentsIndex = lines.findIndex(l => l === '#STUDENTS');
-                    const assignmentsIndex = lines.findIndex(l => l === '#ASSIGNMENTS');
-
-                    if (metaIndex === -1 || studentsIndex === -1 || assignmentsIndex === -1) {
-                        throw new Error('지원하지 않는 파일 형식입니다.');
-                    }
-
-                    const metaLines = lines.slice(metaIndex + 1, studentsIndex).filter(l => l);
                     const meta = {};
-                    metaLines.forEach(line => {
-                        const [key, value] = line.split(':');
-                        if (key && value) meta[key] = value;
+                    lines.slice(metaIdx + 1, studIdx).forEach(l => {
+                        const [k, v] = l.split(':');
+                        if (k && v) meta[k] = v;
                     });
-                    
-                    totalSeatsInput.value = meta.totalSeats || '30';
-                    colsInput.value = meta.cols || '6';
-                    if (meta.layoutType) {
-                         document.querySelector(`input[name="layout-type"][value="${meta.layoutType}"]`).checked = true;
-                    }
+                    totalSeatsInput.value = meta.totalSeats;
+                    colsInput.value = meta.cols;
+                    const radio = document.querySelector(`input[name="layout-type"][value="${meta.layoutType}"]`);
+                    if (radio) radio.checked = true;
 
-                    const studentLines = lines.slice(studentsIndex + 1, assignmentsIndex).filter(l => l);
-                    students = studentLines.map(line => {
-                        const [number, name] = line.split(',');
-                        return { number, name };
+                    students = lines.slice(studIdx + 1, assIdx).filter(l => l).map(l => {
+                        const [num, name] = l.split(',');
+                        return { number: num, name };
                     });
-                    
                     availableForPicking = [...students];
-                    pickedPresenters = [];
-                    renderPickedPresenters();
-                    presenterStatus.textContent = `현재 ${availableForPicking.length}명 중 1명 뽑기`;
-
-                    generateGrid(); // 자리 틀부터 생성
-
-                    const assignmentLines = lines.slice(assignmentsIndex + 1).filter(l => l);
-                    const newAssignments = Array(parseInt(totalSeatsInput.value, 10)).fill(null).map(() => ({ studentIndex: null }));
-                    assignmentLines.forEach(line => {
-                        const [seatIndexStr, studentIndexStr] = line.split(',');
-                        const seatIndex = parseInt(seatIndexStr, 10);
-                        const studentIndex = studentIndexStr === 'null' ? null : parseInt(studentIndexStr, 10);
-                        if (!isNaN(seatIndex) && seatIndex < newAssignments.length) {
-                            newAssignments[seatIndex].studentIndex = studentIndex;
-                        }
+                    
+                    generateGrid(); 
+                    const assignments = Array(parseInt(meta.totalSeats)).fill(null).map(() => ({ studentIndex: null }));
+                    lines.slice(assIdx + 1).filter(l => l).forEach(l => {
+                        const [s, st] = l.split(',');
+                        if (assignments[s]) assignments[s].studentIndex = st === 'null' ? null : parseInt(st);
                     });
-                    seatAssignments = newAssignments;
-
+                    seatAssignments = assignments;
                     renderSeatAssignments();
-                    showMessage('파일에서 자리 배치를 불러왔습니다.', 'green');
-
-                } catch (error) {
-                    console.error('파일 불러오기 오류:', error);
-                    showMessage(`파일을 불러오는 중 오류 발생: ${error.message}`, 'red');
+                    showMessage('자리 배치를 불러왔습니다.', 'green');
+                } catch (err) {
+                    showMessage('불러오기 실패: ' + err.message, 'red');
                 } finally {
-                    event.target.value = ''; // 다음에도 같은 파일을 불러올 수 있도록 초기화
+                    event.target.value = ''; 
                 }
             };
             reader.readAsText(file, 'UTF-8');
         });
 
-        // 7. PDF 내보내기
         exportPdfBtn.addEventListener('click', () => {
             const chartArea = document.getElementById('seating-chart-area');
             const chartGrid = document.getElementById('seating-chart-grid');
             const isTeacherView = document.getElementById('teacher-view-checkbox').checked;
+            if (chartGrid.children.length < 2) return showMessage('내보낼 배치도가 없습니다.', 'red');
 
-            if (chartGrid.children.length === 0) {
-                showMessage('내보낼 자리 배치도가 없습니다.', 'red');
-                return;
-            }
-
-            // 인쇄용 스타일 적용
             const desks = chartArea.querySelectorAll('.desk');
             desks.forEach(d => d.classList.add('print-mode'));
-            
             const chalkboard = chartArea.querySelector('.bg-gray-200');
 
-            // 교사 시점인 경우, 회전 및 순서 변경 적용
             if (isTeacherView) {
-                // DOM을 직접 조작하여 칠판을 아래로 이동
-                if (chalkboard) {
-                    chartArea.appendChild(chalkboard);
-                }
-                
-                // 자리와 학생 이름 회전
+                if (chalkboard) chartArea.appendChild(chalkboard);
                 chartGrid.style.transform = 'rotate(180deg)';
-                desks.forEach(desk => {
-                    desk.style.transform = 'rotate(180deg)';
-                });
+                desks.forEach(desk => desk.style.transform = 'rotate(180deg)');
             }
 
             html2canvas(chartArea, { scale: 2 }).then(canvas => {
-                const imgData = canvas.toDataURL('image/png');
-                const pdf = new jsPDF({
-                    orientation: 'landscape',
-                    unit: 'px',
-                    format: [canvas.width, canvas.height]
-                });
-                pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
-                
-                const today = new Date();
-                const dateString = `${today.getFullYear()}-${today.getMonth()+1}-${today.getDate()}`;
-                pdf.save(`자리배치도_${dateString}.pdf`);
-                
+                const pdf = new jsPDF({ orientation: 'landscape', unit: 'px', format: [canvas.width, canvas.height] });
+                pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, canvas.width, canvas.height);
+                pdf.save(`자리배치도_${new Date().toLocaleDateString()}.pdf`);
             }).finally(() => {
-                // PDF 저장 후 또는 오류 발생 시 항상 스타일 초기화
                 desks.forEach(d => d.classList.remove('print-mode'));
                 if (isTeacherView) {
-                    // DOM 순서 원상복구
-                    if (chalkboard) {
-                        chartArea.insertBefore(chalkboard, chartGrid);
-                    }
-
-                    // 회전 스타일 원상복구
+                    if (chalkboard) chartArea.insertBefore(chalkboard, chartGrid);
                     chartGrid.style.transform = '';
-                    desks.forEach(desk => {
-                        desk.style.transform = '';
-                    });
+                    desks.forEach(desk => desk.style.transform = '');
                 }
             });
         });
 
-        saveCloudBtn.addEventListener('click', () => {
-            // 이 버튼은 사용자가 '저장' 버튼으로 다운로드한 .txt 파일을
-            // 수동으로 업로드할 수 있도록 구글 드라이브 폴더를 열어주는 역할을 합니다.
-            showMessage('구글 드라이브 폴더를 새 탭에서 엽니다. ‘저장’ 버튼으로 받은 txt 파일을 업로드하세요.', 'blue');
-            window.open('https://drive.google.com/drive/folders/1IKLXNRRIm4Yzmf_ofAfetGjiv7OnwdaD?usp=sharing', '_blank');
-        });
-
-        function showMessage(msg, color) {
-            statusMessage.textContent = msg;
-            statusMessage.className = `mt-4 text-sm font-medium text-${color}-600`;
-        }
-
-
-        // --- 오늘의 한마디 로직 ---
+        // --- 오늘의 한마디 (Gemini API) ---
         getRecommendationBtn.addEventListener('click', fetchRecommendation);
 
         async function fetchRecommendation() {
@@ -646,301 +567,163 @@
             recommendationContent.innerHTML = '';
             recommendationContent.appendChild(loadingSpinner);
 
-            const apiKey = ""; // 실제 사용 시 여기에 API 키를 입력하세요.
-            // gemini-2.5-flash-preview-09-2025 모델 사용 (권장)
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+            const systemPrompt = `당신은 한국 학생들을 위한 동기부여 전문가입니다. 학생들에게 영감을 줄 수 있는 사자성어 1개와 위인 명언 1개를 추천해주세요. JSON 형식: { "idiom": { "hanja": "漢字", "hangeul": "독음", "meaning": "뜻" }, "quote": { "text": "명언", "author": "인물" } }`;
+            const payload = {
+                contents: [{ parts: [{ text: "오늘의 사자성어와 명언을 추천해줘." }] }],
+                systemInstruction: { parts: [{ text: systemPrompt }] },
+                generationConfig: { responseMimeType: "application/json" }
+            };
 
-            const systemPrompt = `당신은 한국 학생들을 위한 동기부여 전문가입니다. 학생들에게 영감을 줄 수 있는 사자성어 1개와 위인 명언 1개를 추천해주세요. 응답은 반드시 다음의 JSON 형식이어야 합니다:
-            {
-              "idiom": {
-                "hanja": "漢字",
-                "hangeul": "한글 독음",
-                "meaning": "자세한 뜻풀이"
-              },
-              "quote": {
-                "text": "위인의 명언 내용",
-                "author": "명언을 남긴 인물"
-              }
-            }`;
-            
-            const userQuery = "오늘 학생들에게 들려줄 좋은 사자성어와 명언을 추천해줘.";
-
-            // 지수 백오프 기반 재시도 로직 구현
             const maxRetries = 5;
-            let retryCount = 0;
+            let currentRetry = 0;
 
-            const callApi = async () => {
+            const callWithRetry = async () => {
                 try {
                     const response = await fetch(apiUrl, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            contents: [{ parts: [{ text: userQuery }] }],
-                            systemInstruction: { parts: [{ text: systemPrompt }] }
-                        })
+                        body: JSON.stringify(payload)
                     });
 
-                    if (!response.ok) {
-                        throw new Error(`API 오류: ${response.status}`);
-                    }
-
+                    if (!response.ok) throw new Error(`API 오류: ${response.status}`);
                     const result = await response.json();
                     const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
-                    if (!text) throw new Error('API 응답에서 텍스트를 찾을 수 없습니다.');
+                    if (!text) throw new Error('응답 데이터 없음');
                     
-                    const cleanedText = text.replace(/^```json\n?/, '').replace(/```$/, '');
-                    const data = JSON.parse(cleanedText);
-                    
-                    displayRecommendation(data);
+                    const data = JSON.parse(text);
+                    recommendationContent.innerHTML = `
+                        <div class="p-6 bg-indigo-50 rounded-lg">
+                            <h3 class="text-xl font-bold text-indigo-800">오늘의 사자성어</h3>
+                            <p class="text-4xl font-bold my-3">${data.idiom.hanja} <span class="text-2xl font-medium text-slate-600">(${data.idiom.hangeul})</span></p>
+                            <p class="text-slate-700">${data.idiom.meaning}</p>
+                        </div>
+                        <div class="p-6 bg-green-50 rounded-lg">
+                            <h3 class="text-xl font-bold text-green-800">오늘의 명언</h3>
+                            <p class="text-2xl italic my-3">"${data.quote.text}"</p>
+                            <p class="text-right font-semibold text-slate-600">- ${data.quote.author} -</p>
+                        </div>
+                    `;
                 } catch (error) {
-                    if (retryCount < maxRetries) {
-                        retryCount++;
-                        const delay = Math.pow(2, retryCount - 1) * 1000;
-                        setTimeout(callApi, delay);
+                    if (currentRetry < maxRetries) {
+                        currentRetry++;
+                        setTimeout(callWithRetry, Math.pow(2, currentRetry - 1) * 1000);
                     } else {
-                        console.error('Error fetching recommendation after retries:', error);
-                        recommendationContent.innerHTML = `<p class="text-red-500 text-center">추천을 받아오는 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.</p>`;
-                        loadingSpinner.classList.add('hidden');
+                        recommendationContent.innerHTML = `<p class="text-red-500 text-center">지혜를 불러오지 못했습니다. (오류: ${error.message})</p>`;
                     }
                 } finally {
-                    if (retryCount === 0 || retryCount === maxRetries) {
-                         loadingSpinner.classList.add('hidden');
-                    }
+                    if (currentRetry === 0 || currentRetry === maxRetries) loadingSpinner.classList.add('hidden');
                 }
             };
-
-            await callApi();
+            callWithRetry();
         }
 
-        function displayRecommendation(data) {
-            recommendationContent.innerHTML = `
-                <div class="p-6 bg-indigo-50 rounded-lg">
-                    <h3 class="text-xl font-bold text-indigo-800">오늘의 사자성어</h3>
-                    <p class="text-4xl font-bold my-3">${data.idiom.hanja} <span class="text-2xl font-medium text-slate-600">(${data.idiom.hangeul})</span></p>
-                    <p class="text-slate-700">${data.idiom.meaning}</p>
-                </div>
-                <div class="p-6 bg-green-50 rounded-lg">
-                    <h3 class="text-xl font-bold text-green-800">오늘의 명언</h3>
-                    <p class="text-2xl italic my-3">"${data.quote.text}"</p>
-                    <p class="text-right font-semibold text-slate-600">- ${data.quote.author} -</p>
-                </div>
-            `;
-        }
-        
         // --- 랜덤 뽑기 로직 ---
-        
-        // 뽑힌 학생 명단 렌더링
-        function renderPickedPresenters() {
-            if (pickedPresenters.length === 0) {
-                pickedPresentersList.innerHTML = '<p>아직 뽑힌 학생이 없습니다.</p>';
-            } else {
-                const listHtml = pickedPresenters.map(student => `<span class="inline-block bg-slate-200 rounded-full px-3 py-1 text-sm font-semibold text-slate-700 mr-2 mb-2">${student.name}</span>`).join('');
-                pickedPresentersList.innerHTML = listHtml;
-            }
-        }
-
-        // 이름 섞기 애니메이션 함수
         function runShuffleAnimation(element, list, duration = 2000) {
-            if (isShuffling || list.length === 0) return;
+            if (isShuffling || list.length === 0) return Promise.resolve();
             isShuffling = true;
-
-            let shuffleInterval = setInterval(() => {
-                const randomIndex = Math.floor(Math.random() * list.length);
-                const randomStudent = list[randomIndex];
-                element.textContent = randomStudent.name;
+            let interval = setInterval(() => {
+                element.textContent = list[Math.floor(Math.random() * list.length)].name;
             }, 80);
-
             return new Promise(resolve => {
                 setTimeout(() => {
-                    clearInterval(shuffleInterval);
+                    clearInterval(interval);
                     isShuffling = false;
                     resolve();
                 }, duration);
             });
         }
-        
-        // 모둠 렌더링 함수
-        function renderGroups(groups) {
-            groupResults.innerHTML = '';
-            if (!groups || groups.length === 0) {
-                currentGroups = [];
-                return;
-            };
 
-            groups.forEach((group, index) => {
-                const groupCard = document.createElement('div');
-                groupCard.className = "group-card bg-slate-50 p-3 rounded-lg border";
-                let membersHtml = group.map(s => `<p class="text-sm">${s.number || ''}. ${s.name}</p>`).join('');
-                groupCard.innerHTML = `<h4 class="font-bold text-teal-700 border-b mb-2 pb-1">${index + 1} 모둠</h4>${membersHtml}`;
-                groupResults.appendChild(groupCard);
-            });
-            currentGroups = groups;
-        }
-
-        // 모둠 편성
         formGroupsBtn.addEventListener('click', async () => {
-            if (isShuffling) return;
-            if (students.length === 0) {
-                groupShuffleBox.textContent = '학생 명단을 먼저 업로드하세요.';
-                return;
-            }
-
-            const groupCount = parseInt(groupCountInput.value, 10);
-            if (isNaN(groupCount) || groupCount <= 0) {
-                groupShuffleBox.textContent = '모둠 수는 1 이상이어야 합니다.';
-                return;
-            }
-            if (groupCount > students.length) {
-                groupShuffleBox.textContent = '모둠 수가 학생 수보다 많습니다.';
-                return;
-            }
+            if (students.length === 0) return showMessage('명단을 먼저 업로드하세요.', 'red');
+            const count = parseInt(groupCountInput.value);
+            if (count <= 0 || count > students.length) return showMessage('유효하지 않은 모둠 수입니다.', 'red');
 
             groupResults.innerHTML = '';
             await runShuffleAnimation(groupShuffleBox, students);
             
-            let shuffledStudents = [...students].sort(() => Math.random() - 0.5);
-            let groups = Array(groupCount).fill(null).map(() => []);
-
-            shuffledStudents.forEach((student, index) => {
-                groups[index % groupCount].push(student);
-            });
+            const shuffled = [...students].sort(() => Math.random() - 0.5);
+            const groups = Array.from({ length: count }, () => []);
+            shuffled.forEach((s, i) => groups[i % count].push(s));
             
             groupShuffleBox.textContent = "편성 완료!";
-            renderGroups(groups);
+            groupResults.innerHTML = groups.map((g, i) => `
+                <div class="group-card bg-slate-50 p-3 rounded-lg border">
+                    <h4 class="font-bold text-teal-700 border-b mb-2 pb-1">${i + 1} 모둠</h4>
+                    ${g.map(s => `<p class="text-sm">${s.number}. ${s.name}</p>`).join('')}
+                </div>
+            `).join('');
+            currentGroups = groups;
         });
 
-        // 모둠 편성 저장
         saveGroupsBtn.addEventListener('click', () => {
-            if (currentGroups.length === 0) {
-                groupShuffleBox.textContent = '저장할 모둠 편성 내용이 없습니다.';
-                return;
-            }
-
-            const fileContent = currentGroups.map((group, index) => {
-                const groupHeader = `#GROUP:${index + 1}`;
-                const members = group.map(s => `${s.number},${s.name}`).join('\n');
-                return `${groupHeader}\n${members}`;
-            }).join('\n\n');
-
-            const blob = new Blob([fileContent], { type: 'text/plain;charset=utf-8' });
-
-            const today = new Date();
-            const yyyy = today.getFullYear();
-            const mm = String(today.getMonth() + 1).padStart(2, '0');
-            const dd = String(today.getDate()).padStart(2, '0');
-            const fileName = `모둠편성_${yyyy}${mm}${dd}.txt`;
-
+            if (currentGroups.length === 0) return;
+            const content = currentGroups.map((g, i) => `#GROUP:${i+1}\n${g.map(s => `${s.number},${s.name}`).join('\n')}`).join('\n\n');
+            const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
             const link = document.createElement('a');
             link.href = URL.createObjectURL(blob);
-            link.download = fileName;
-            document.body.appendChild(link);
+            link.download = `모둠편성_${new Date().toISOString().slice(0,10)}.txt`;
             link.click();
-            document.body.removeChild(link);
-            groupShuffleBox.textContent = '파일으로 저장했습니다.';
         });
 
-        // 모둠 편성 불러오기
-        loadGroupsBtn.addEventListener('click', () => {
-            loadGroupsInput.click();
-        });
-
-        loadGroupsInput.addEventListener('change', (event) => {
-            const file = event.target.files[0];
+        loadGroupsBtn.addEventListener('click', () => loadGroupsInput.click());
+        loadGroupsInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
             if (!file) return;
-
             const reader = new FileReader();
-            reader.onload = (e) => {
+            reader.onload = (ev) => {
                 try {
-                    const text = e.target.result;
-                    if(!text.includes('#GROUP:')){
-                         throw new Error('지원하지 않는 파일 형식입니다.');
-                    }
-                    const groupBlocks = text.split('#GROUP:').filter(b => b.trim() !== '');
-                    
-                    const loadedGroups = groupBlocks.map(block => {
-                        const lines = block.split('\n').filter(l => l.trim() !== '');
-                        lines.shift(); // Remove the group number line
-                        return lines.map(line => {
-                            const [number, name] = line.split(',');
-                            return { number, name };
+                    const text = ev.target.result;
+                    const blocks = text.split('#GROUP:').filter(b => b.trim());
+                    currentGroups = blocks.map(b => {
+                        const lines = b.trim().split('\n');
+                        lines.shift();
+                        return lines.map(l => {
+                            const [num, name] = l.split(',');
+                            return { number: num, name };
                         });
                     });
-                    
-                    renderGroups(loadedGroups);
-                    groupShuffleBox.textContent = "파일에서 모둠을 불러왔습니다!";
-                } catch (error) {
-                    console.error('모둠 파일 불러오기 오류:', error);
-                    groupShuffleBox.textContent = '파일 불러오기 오류! 형식을 확인하세요.';
-                } finally {
-                    event.target.value = ''; // Reset file input
-                }
+                    groupResults.innerHTML = currentGroups.map((g, i) => `
+                        <div class="group-card bg-slate-50 p-3 rounded-lg border">
+                            <h4 class="font-bold text-teal-700 border-b mb-2 pb-1">${i + 1} 모둠</h4>
+                            ${g.map(s => `<p class="text-sm">${s.number}. ${s.name}</p>`).join('')}
+                        </div>
+                    `).join('');
+                    groupShuffleBox.textContent = "불러오기 완료";
+                } catch { showMessage('모둠 파일 형식 오류', 'red'); }
             };
             reader.readAsText(file, 'UTF-8');
         });
 
-        // 모둠 편성 PDF 내보내기
         exportGroupsPdfBtn.addEventListener('click', () => {
-            if (currentGroups.length === 0) {
-                groupShuffleBox.textContent = 'PDF로 내보낼 모둠 내용이 없습니다.';
-                return;
-            }
-
-            const contentToExport = document.getElementById('group-results');
-            
-            const pdfTitle = document.createElement('h3');
-            pdfTitle.textContent = '모둠 편성 결과';
-            pdfTitle.className = 'text-2xl font-bold mb-4 text-center';
-            contentToExport.prepend(pdfTitle);
-
-            html2canvas(contentToExport, { scale: 2 }).then(canvas => {
-                pdfTitle.remove();
-
-                const imgData = canvas.toDataURL('image/png');
-                const pdf = new jsPDF({
-                    orientation: 'portrait',
-                    unit: 'px',
-                    format: [canvas.width, canvas.height]
-                });
-                pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
-                
-                const today = new Date();
-                const dateString = `${today.getFullYear()}-${today.getMonth()+1}-${today.getDate()}`;
-                pdf.save(`모둠편성_${dateString}.pdf`);
-            }).catch(err => {
-                console.error("PDF 생성 오류:", err);
-                pdfTitle.remove();
+            const results = document.getElementById('group-results');
+            if (!results.children.length) return;
+            html2canvas(results, { scale: 2 }).then(canvas => {
+                const pdf = new jsPDF({ orientation: 'portrait', unit: 'px', format: [canvas.width, canvas.height + 40] });
+                pdf.text("모둠 편성 결과", canvas.width / 2, 25, { align: "center" });
+                pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 40, canvas.width, canvas.height);
+                pdf.save("모둠편성결과.pdf");
             });
         });
 
-        // 발표자 뽑기
         pickPresenterBtn.addEventListener('click', async () => {
-            if (isShuffling) return;
-            if (students.length === 0) {
-                presenterShuffleBox.textContent = '학생 명단을 먼저 업로드하세요.';
-                return;
-            }
-
-            if (availableForPicking.length === 0) {
-                presenterShuffleBox.textContent = "모두 뽑혔어요!";
-                return;
-            }
-
+            if (availableForPicking.length === 0) return presenterShuffleBox.textContent = "전원 당첨!";
             await runShuffleAnimation(presenterShuffleBox, availableForPicking);
-
-            const randomIndex = Math.floor(Math.random() * availableForPicking.length);
-            const winner = availableForPicking[randomIndex];
-
+            const idx = Math.floor(Math.random() * availableForPicking.length);
+            const winner = availableForPicking[idx];
             presenterShuffleBox.textContent = winner.name;
             presenterShuffleBox.classList.add('text-red-500');
-            
             pickedPresenters.push(winner);
             renderPickedPresenters();
-
-            if (excludePickedCheckbox.checked) {
-                availableForPicking.splice(randomIndex, 1);
-            }
+            if (excludePickedCheckbox.checked) availableForPicking.splice(idx, 1);
             presenterStatus.textContent = `현재 ${availableForPicking.length}명 중 1명 뽑기`;
         });
+
+        function renderPickedPresenters() {
+            pickedPresentersList.innerHTML = pickedPresenters.length ? 
+                pickedPresenters.map(s => `<span class="bg-indigo-100 text-indigo-700 px-2 py-1 rounded text-xs font-bold">${s.name}</span>`).join('') :
+                '<p>아직 뽑힌 학생이 없습니다.</p>';
+        }
 
         resetPresenterListBtn.addEventListener('click', () => {
             availableForPicking = [...students];
@@ -949,13 +732,11 @@
             presenterShuffleBox.textContent = "오늘의 발표자는?";
             presenterShuffleBox.classList.remove('text-red-500');
             presenterStatus.textContent = `현재 ${availableForPicking.length}명 중 1명 뽑기`;
-            presenterShuffleBox.textContent = '발표자 명단이 초기화되었습니다.';
         });
 
-
-        // 초기 실행
-        switchView('seating'); // 첫 화면은 자리배치로 시작
-        fetchRecommendation(); // 오늘의 한마디 페이지 첫 로딩 시 바로 추천
+        // 초기화
+        switchView('seating');
+        fetchRecommendation();
     </script>
 </body>
 </html>
