@@ -1,0 +1,961 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>우리반 올인원 도우미</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+        }
+        .desk {
+            border: 2px solid #a5b4fc;
+            min-height: 80px;
+            transition: all 0.2s ease-in-out;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            font-weight: 500;
+            cursor: pointer;
+        }
+        .desk.empty {
+            border-style: dashed;
+            background-color: #f1f5f9;
+        }
+        .desk.selected {
+            background-color: #818cf8;
+            color: white;
+            transform: scale(1.05);
+            box-shadow: 0 0 15px rgba(0,0,0,0.2);
+        }
+        .print-mode {
+            background-color: white !important;
+            color: black !important;
+            border: 2px solid black !important;
+        }
+        .print-mode .empty {
+            background-color: #f0f0f0 !important;
+            border: 2px dashed black !important;
+        }
+        .shuffle-box {
+            min-height: 100px;
+            font-size: 2rem;
+            font-weight: bold;
+            border: 2px dashed #cbd5e1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: all 0.1s;
+        }
+        .group-card {
+            min-height: 150px;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800">
+
+    <div class="container mx-auto p-4 md:p-8">
+        <header class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-indigo-600">우리반 올인원 도우미</h1>
+            <p class="text-slate-500 mt-2">자리 배치와 오늘의 한마디로 활기찬 학급을 만들어 보세요!</p>
+        </header>
+
+        <!-- 메뉴 버튼 -->
+        <nav class="flex justify-center flex-wrap gap-4 mb-8">
+            <button id="menu-seating" class="px-6 py-2 bg-indigo-500 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-opacity-75">자리 배치</button>
+            <button id="menu-daily" class="px-6 py-2 bg-white text-indigo-500 font-semibold rounded-lg shadow-md hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-opacity-75">오늘의 한마디</button>
+            <button id="menu-picker" class="px-6 py-2 bg-white text-indigo-500 font-semibold rounded-lg shadow-md hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-opacity-75">랜덤 뽑기</button>
+        </nav>
+
+        <!-- 1. 자리 배치 프로그램 -->
+        <main id="seating-chart-section">
+            <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                <!-- 제어판 -->
+                <aside class="lg:col-span-1 bg-white p-6 rounded-xl shadow-lg">
+                    <h2 class="text-2xl font-bold mb-6 border-b-2 pb-2 border-indigo-200">설정</h2>
+                    
+                    <div class="space-y-6">
+                        <div>
+                            <label for="student-file" class="block text-sm font-medium text-slate-700 mb-1">1. 학생 명단 (txt)</label>
+                            <input type="file" id="student-file" accept=".txt" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"/>
+                            <p class="text-xs text-slate-400 mt-1">예: 1,김민준</p>
+                        </div>
+
+                        <div>
+                            <label for="total-seats" class="block text-sm font-medium text-slate-700 mb-1">2. 전체 좌석 수</label>
+                            <input type="number" id="total-seats" value="30" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
+                        </div>
+
+                        <div>
+                            <span class="block text-sm font-medium text-slate-700 mb-2">3. 배치 형태</span>
+                            <div class="flex gap-4">
+                                <label class="flex items-center">
+                                    <input type="radio" name="layout-type" value="pairs" checked class="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-slate-300">
+                                    <span class="ml-2">짝꿍 (2인)</span>
+                                </label>
+                                <label class="flex items-center">
+                                    <input type="radio" name="layout-type" value="single" class="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-slate-300">
+                                    <span class="ml-2">홀로 (1인)</span>
+                                </label>
+                            </div>
+                             <label for="cols" class="block text-sm font-medium text-slate-700 mt-2">분단(열) 수</label>
+                             <input type="number" id="cols" value="6" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
+                        </div>
+                        
+                        <button id="apply-settings" class="w-full bg-indigo-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-600 transition-colors">자리 생성</button>
+                    </div>
+
+                    <h3 class="text-xl font-bold mt-8 mb-4 border-b-2 pb-2 border-indigo-200">기능</h3>
+                    <div class="grid grid-cols-2 gap-3">
+                         <button id="randomize" class="bg-green-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-600">랜덤 배치</button>
+                         <button id="swap-mode" class="bg-orange-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-orange-600">자리 바꾸기</button>
+                         <button id="save" class="bg-blue-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-600">저장</button>
+                         <button id="load" class="bg-gray-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-gray-600">불러오기</button>
+                         <button id="export-pdf" class="col-span-2 bg-purple-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-purple-600">PDF로 내보내기</button>
+                         <button id="save-cloud" class="col-span-2 mt-3 bg-cyan-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-cyan-600">클라우드에 저장</button>
+                    </div>
+                    <input type="file" id="load-file-input" class="hidden" accept=".txt">
+                    <div class="mt-3 flex items-center justify-center">
+                        <input type="checkbox" id="teacher-view-checkbox" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                        <label for="teacher-view-checkbox" class="ml-2 block text-sm text-slate-700 font-medium">교사 시점 (상하좌우 반전)</label>
+                    </div>
+                     <div id="status-message" class="mt-4 text-sm text-red-600 font-medium"></div>
+                </aside>
+
+                <!-- 자리 배치도 -->
+                <div id="seating-chart-area" class="lg:col-span-3 bg-white p-6 rounded-xl shadow-lg">
+                    <div class="bg-gray-200 text-center py-2 rounded-t-lg font-bold text-lg text-slate-600">칠판</div>
+                    <div id="seating-chart-grid" class="p-4 grid gap-4">
+                        <div class="col-span-full h-64 flex items-center justify-center text-slate-400">
+                            학생 명단 파일을 업로드하고 '자리 생성' 버튼을 눌러주세요.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+        
+        <!-- 2. 오늘의 한마디 -->
+        <main id="daily-word-section" class="hidden">
+            <div class="bg-white p-8 rounded-xl shadow-lg max-w-4xl mx-auto">
+                <div class="text-center mb-8">
+                    <h2 class="text-3xl font-bold text-indigo-600">오늘의 한마디</h2>
+                    <p class="text-slate-500 mt-2">AI가 매일 새로운 지혜를 추천해 드립니다.</p>
+                    <button id="get-recommendation" class="mt-4 px-6 py-2 bg-indigo-500 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-600">새로운 추천 받기</button>
+                </div>
+                
+                <div id="recommendation-content" class="space-y-8">
+                    <!-- AI 추천 내용이 여기에 표시됩니다 -->
+                    <div id="loading-spinner" class="hidden text-center">
+                        <svg class="animate-spin h-8 w-8 text-indigo-500 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <p class="mt-2 text-slate-500">지혜를 찾고 있습니다...</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- 3. 랜덤 뽑기 -->
+        <main id="random-picker-section" class="hidden">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <!-- 모둠 편성 -->
+                <div class="bg-white p-6 rounded-xl shadow-lg">
+                    <h2 class="text-2xl font-bold mb-4 text-center text-teal-600">모둠 편성</h2>
+                    <div class="flex items-center gap-2 mb-4">
+                        <label for="group-count" class="font-medium">모둠 수:</label>
+                        <input type="number" id="group-count" value="6" class="w-20 rounded-md border-slate-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
+                        <button id="form-groups-btn" class="flex-grow bg-teal-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-teal-600">편성 시작</button>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2 mb-4">
+                        <button id="save-groups-btn" class="text-sm bg-blue-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-600">저장(.txt)</button>
+                        <button id="load-groups-btn" class="text-sm bg-gray-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-gray-600">불러오기</button>
+                        <button id="export-groups-pdf" class="text-sm bg-purple-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-purple-600">PDF 내보내기</button>
+                    </div>
+                    <input type="file" id="load-groups-input" class="hidden" accept=".txt">
+                    <div id="group-shuffle-box" class="shuffle-box text-teal-500 mb-4">모둠 편성을 시작하세요!</div>
+                    <div id="group-results" class="grid grid-cols-2 lg:grid-cols-3 gap-4"></div>
+                </div>
+                <!-- 발표자 뽑기 -->
+                <div class="bg-white p-6 rounded-xl shadow-lg">
+                    <h2 class="text-2xl font-bold mb-4 text-center text-sky-600">발표자 뽑기</h2>
+                    <div class="mb-4 space-y-3">
+                       <button id="pick-presenter-btn" class="w-full bg-sky-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-sky-600">발표자 뽑기!</button>
+                       <div class="flex items-center justify-center">
+                           <input type="checkbox" id="exclude-picked-checkbox" checked class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                           <label for="exclude-picked-checkbox" class="ml-2 block text-sm text-slate-700 font-medium">뽑힌 사람 제외하기</label>
+                       </div>
+                       <button id="reset-presenter-list" class="w-full text-xs text-slate-500 hover:text-slate-700">초기화</button>
+                    </div>
+                    <div id="presenter-shuffle-box" class="shuffle-box text-sky-500 mb-4">오늘의 발표자는?</div>
+                    <p id="presenter-status" class="text-center text-sm text-slate-500 h-5"></p>
+                     <!-- 뽑힌 학생 명단 표시 영역 -->
+                    <div class="mt-4 border-t pt-4">
+                        <h4 class="font-bold text-center text-slate-600 mb-2">뽑힌 학생 명단</h4>
+                        <div id="picked-presenters-list" class="text-center text-sm text-slate-500 space-y-1">
+                            <p>아직 뽑힌 학생이 없습니다.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+    </div>
+
+    <script>
+        const { jsPDF } = window.jspdf;
+
+        // --- 전역 상태 변수 ---
+        let students = [];
+        let seatAssignments = []; // [ { studentIndex: null }, ... ]
+        let isSwapMode = false;
+        let firstSelection = null;
+        let availableForPicking = [];
+        let pickedPresenters = [];
+        let currentGroups = [];
+        let isShuffling = false;
+
+        // --- DOM 요소 ---
+        const menuSeating = document.getElementById('menu-seating');
+        const menuDaily = document.getElementById('menu-daily');
+        const menuPicker = document.getElementById('menu-picker');
+
+        const seatingSection = document.getElementById('seating-chart-section');
+        const dailySection = document.getElementById('daily-word-section');
+        const pickerSection = document.getElementById('random-picker-section');
+        
+        const fileInput = document.getElementById('student-file');
+        const totalSeatsInput = document.getElementById('total-seats');
+        const colsInput = document.getElementById('cols');
+        const applySettingsBtn = document.getElementById('apply-settings');
+        const randomizeBtn = document.getElementById('randomize');
+        const swapModeBtn = document.getElementById('swap-mode');
+        const saveBtn = document.getElementById('save');
+        const loadBtn = document.getElementById('load');
+        const loadFileInput = document.getElementById('load-file-input');
+        const exportPdfBtn = document.getElementById('export-pdf');
+        const saveCloudBtn = document.getElementById('save-cloud');
+        const grid = document.getElementById('seating-chart-grid');
+        const statusMessage = document.getElementById('status-message');
+
+        const getRecommendationBtn = document.getElementById('get-recommendation');
+        const recommendationContent = document.getElementById('recommendation-content');
+        const loadingSpinner = document.getElementById('loading-spinner');
+
+        const groupCountInput = document.getElementById('group-count');
+        const formGroupsBtn = document.getElementById('form-groups-btn');
+        const groupShuffleBox = document.getElementById('group-shuffle-box');
+        const groupResults = document.getElementById('group-results');
+        const saveGroupsBtn = document.getElementById('save-groups-btn');
+        const loadGroupsBtn = document.getElementById('load-groups-btn');
+        const loadGroupsInput = document.getElementById('load-groups-input');
+        const exportGroupsPdfBtn = document.getElementById('export-groups-pdf');
+
+        const pickPresenterBtn = document.getElementById('pick-presenter-btn');
+        const excludePickedCheckbox = document.getElementById('exclude-picked-checkbox');
+        const resetPresenterListBtn = document.getElementById('reset-presenter-list');
+        const presenterShuffleBox = document.getElementById('presenter-shuffle-box');
+        const presenterStatus = document.getElementById('presenter-status');
+        const pickedPresentersList = document.getElementById('picked-presenters-list');
+
+        // --- 메뉴 전환 로직 ---
+        function switchView(view) {
+            seatingSection.classList.add('hidden');
+            dailySection.classList.add('hidden');
+            pickerSection.classList.add('hidden');
+            
+            menuSeating.classList.replace('bg-indigo-500', 'bg-white');
+            menuSeating.classList.replace('text-white', 'text-indigo-500');
+            menuDaily.classList.replace('bg-indigo-500', 'bg-white');
+            menuDaily.classList.replace('text-white', 'text-indigo-500');
+            menuPicker.classList.replace('bg-indigo-500', 'bg-white');
+            menuPicker.classList.replace('text-white', 'text-indigo-500');
+
+            let targetSection, targetMenu;
+            if (view === 'seating') {
+                targetSection = seatingSection;
+                targetMenu = menuSeating;
+            } else if (view === 'daily') {
+                targetSection = dailySection;
+                targetMenu = menuDaily;
+            } else {
+                targetSection = pickerSection;
+                targetMenu = menuPicker;
+            }
+
+            targetSection.classList.remove('hidden');
+            targetMenu.classList.replace('bg-white', 'bg-indigo-500');
+            targetMenu.classList.replace('text-indigo-500', 'text-white');
+        }
+
+        menuSeating.addEventListener('click', () => switchView('seating'));
+        menuDaily.addEventListener('click', () => switchView('daily'));
+        menuPicker.addEventListener('click', () => switchView('picker'));
+
+
+        // --- 자리 배치 프로그램 로직 ---
+
+        // 1. 학생 파일 읽기
+        fileInput.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const text = e.target.result;
+                students = text.split('\n').filter(line => line.trim() !== '').map(line => {
+                    const [number, name] = line.split(/[,，]/).map(s => s.trim());
+                    return { number, name };
+                });
+                availableForPicking = [...students]; // 랜덤 뽑기용 명단도 업데이트
+                pickedPresenters = [];
+                renderPickedPresenters();
+                showMessage(`학생 ${students.length}명의 명단을 불러왔습니다.`, 'green');
+                presenterStatus.textContent = `현재 ${availableForPicking.length}명 중 1명 뽑기`;
+            };
+            reader.readAsText(file, 'UTF-8');
+        });
+
+        // 2. 설정 적용 및 자리 생성
+        applySettingsBtn.addEventListener('click', generateGrid);
+
+        function generateGrid() {
+            const totalSeats = parseInt(totalSeatsInput.value, 10);
+            const layoutType = document.querySelector('input[name="layout-type"]:checked').value;
+            const cols = parseInt(colsInput.value, 10);
+
+            if (isNaN(totalSeats) || totalSeats <= 0 || isNaN(cols) || cols <= 0) {
+                showMessage('좌석 수와 분단 수는 0보다 커야 합니다.', 'red');
+                return;
+            }
+            
+            grid.innerHTML = '';
+            grid.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
+            
+            seatAssignments = Array(totalSeats).fill(null).map(() => ({ studentIndex: null }));
+
+            for (let i = 0; i < totalSeats; i++) {
+                const desk = document.createElement('div');
+                desk.classList.add('desk', 'p-2', 'rounded-lg', 'break-all');
+                if (layoutType === 'pairs' && (i % 2 !== 0)) {
+                    desk.style.marginLeft = '-1rem'; 
+                    desk.style.borderLeft = 'none';
+                    const prevDesk = grid.children[i-1];
+                    if (prevDesk) {
+                       prevDesk.style.borderRight = 'none';
+                    }
+                }
+                desk.dataset.seatIndex = i;
+                desk.addEventListener('click', handleDeskClick);
+                grid.appendChild(desk);
+            }
+            renderSeatAssignments();
+            showMessage('자리가 생성되었습니다. 랜덤 배치를 실행하세요.', 'blue');
+        }
+        
+        // 3. 자리 배치 렌더링
+        function renderSeatAssignments() {
+            const desks = grid.querySelectorAll('.desk');
+            desks.forEach((desk, seatIndex) => {
+                const assignment = seatAssignments[seatIndex];
+                if (assignment && assignment.studentIndex !== null) {
+                    const student = students[assignment.studentIndex];
+                    desk.textContent = `${student.number}. ${student.name}`;
+                    desk.classList.remove('empty');
+                } else {
+                    desk.textContent = '';
+                    desk.classList.add('empty');
+                }
+            });
+        }
+
+        // 4. 랜덤 배치
+        randomizeBtn.addEventListener('click', () => {
+            if (students.length === 0) {
+                showMessage('먼저 학생 명단 파일을 업로드해주세요.', 'red');
+                return;
+            }
+            if (seatAssignments.length === 0) {
+                showMessage('먼저 자리 생성을 해주세요.', 'red');
+                return;
+            }
+
+            // 학생 인덱스 배열을 섞음
+            let studentIndices = students.map((_, i) => i);
+            for (let i = studentIndices.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [studentIndices[i], studentIndices[j]] = [studentIndices[j], studentIndices[i]];
+            }
+
+            // 자리 할당 초기화 후 재할당
+            seatAssignments.forEach(a => a.studentIndex = null);
+            const seatsToFill = Math.min(students.length, seatAssignments.length);
+            for (let i = 0; i < seatsToFill; i++) {
+                seatAssignments[i].studentIndex = studentIndices[i];
+            }
+            
+            renderSeatAssignments();
+            showMessage('자리를 랜덤으로 배치했습니다.', 'green');
+        });
+
+        // 5. 자리 바꾸기
+        swapModeBtn.addEventListener('click', () => {
+            isSwapMode = !isSwapMode;
+            if (isSwapMode) {
+                swapModeBtn.classList.add('ring-4', 'ring-orange-300');
+                swapModeBtn.textContent = '바꾸기 모드 ON';
+                showMessage('바꿀 첫 번째 자리를 선택하세요.', 'blue');
+            } else {
+                swapModeBtn.classList.remove('ring-4', 'ring-orange-300');
+                swapModeBtn.textContent = '자리 바꾸기';
+                if (firstSelection) {
+                    firstSelection.classList.remove('selected');
+                    firstSelection = null;
+                }
+                showMessage('', 'red');
+            }
+        });
+
+        function handleDeskClick(event) {
+            if (!isSwapMode) return;
+            const clickedDesk = event.currentTarget;
+
+            if (!firstSelection) {
+                firstSelection = clickedDesk;
+                firstSelection.classList.add('selected');
+                showMessage('바뀔 두 번째 자리를 선택하세요.', 'blue');
+            } else {
+                if (firstSelection === clickedDesk) { // 같은 자리 선택 시 취소
+                    firstSelection.classList.remove('selected');
+                    firstSelection = null;
+                    showMessage('자리 선택이 취소되었습니다. 다시 선택하세요.', 'blue');
+                    return;
+                }
+
+                const firstSeatIndex = parseInt(firstSelection.dataset.seatIndex, 10);
+                const secondSeatIndex = parseInt(clickedDesk.dataset.seatIndex, 10);
+
+                // seatAssignments에서 학생 인덱스 교환
+                const tempStudentIndex = seatAssignments[firstSeatIndex].studentIndex;
+                seatAssignments[firstSeatIndex].studentIndex = seatAssignments[secondSeatIndex].studentIndex;
+                seatAssignments[secondSeatIndex].studentIndex = tempStudentIndex;
+
+                renderSeatAssignments();
+                
+                firstSelection.classList.remove('selected');
+                firstSelection = null;
+                
+                isSwapMode = false;
+                swapModeBtn.classList.remove('ring-4', 'ring-orange-300');
+                swapModeBtn.textContent = '자리 바꾸기';
+                showMessage('자리를 성공적으로 바꿨습니다.', 'green');
+            }
+        }
+
+        // 6. 저장 및 불러오기
+        saveBtn.addEventListener('click', () => {
+            if (students.length === 0 || seatAssignments.length === 0) {
+                showMessage('저장할 데이터가 없습니다.', 'red');
+                return;
+            }
+
+            // 1. 메타 데이터
+            const metaData = `#META\ntotalSeats:${totalSeatsInput.value}\ncols:${colsInput.value}\nlayoutType:${document.querySelector('input[name="layout-type"]:checked').value}`;
+            // 2. 학생 명단
+            const studentData = '#STUDENTS\n' + students.map(s => `${s.number},${s.name}`).join('\n');
+            // 3. 자리 배정 정보
+            const assignmentData = '#ASSIGNMENTS\n' + seatAssignments.map((a, i) => `${i},${a.studentIndex}`).join('\n');
+            const fileContent = `${metaData}\n\n${studentData}\n\n${assignmentData}`;
+
+            const blob = new Blob([fileContent], { type: 'text/plain;charset=utf-8' });
+
+            const today = new Date();
+            const yyyy = today.getFullYear();
+            const mm = String(today.getMonth() + 1).padStart(2, '0');
+            const dd = String(today.getDate()).padStart(2, '0');
+            const fileName = `${yyyy}${mm}${dd}.txt`;
+
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = fileName;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            showMessage('자리 배치를 파일로 저장했습니다.', 'green');
+        });
+        
+        loadBtn.addEventListener('click', () => {
+            loadFileInput.click();
+        });
+
+        loadFileInput.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const text = e.target.result;
+                    const lines = text.split('\n').map(l => l.trim());
+
+                    const metaIndex = lines.findIndex(l => l === '#META');
+                    const studentsIndex = lines.findIndex(l => l === '#STUDENTS');
+                    const assignmentsIndex = lines.findIndex(l => l === '#ASSIGNMENTS');
+
+                    if (metaIndex === -1 || studentsIndex === -1 || assignmentsIndex === -1) {
+                        throw new Error('지원하지 않는 파일 형식입니다.');
+                    }
+
+                    const metaLines = lines.slice(metaIndex + 1, studentsIndex).filter(l => l);
+                    const meta = {};
+                    metaLines.forEach(line => {
+                        const [key, value] = line.split(':');
+                        if (key && value) meta[key] = value;
+                    });
+                    
+                    totalSeatsInput.value = meta.totalSeats || '30';
+                    colsInput.value = meta.cols || '6';
+                    if (meta.layoutType) {
+                         document.querySelector(`input[name="layout-type"][value="${meta.layoutType}"]`).checked = true;
+                    }
+
+                    const studentLines = lines.slice(studentsIndex + 1, assignmentsIndex).filter(l => l);
+                    students = studentLines.map(line => {
+                        const [number, name] = line.split(',');
+                        return { number, name };
+                    });
+                    
+                    availableForPicking = [...students];
+                    pickedPresenters = [];
+                    renderPickedPresenters();
+                    presenterStatus.textContent = `현재 ${availableForPicking.length}명 중 1명 뽑기`;
+
+                    generateGrid(); // 자리 틀부터 생성
+
+                    const assignmentLines = lines.slice(assignmentsIndex + 1).filter(l => l);
+                    const newAssignments = Array(parseInt(totalSeatsInput.value, 10)).fill(null).map(() => ({ studentIndex: null }));
+                    assignmentLines.forEach(line => {
+                        const [seatIndexStr, studentIndexStr] = line.split(',');
+                        const seatIndex = parseInt(seatIndexStr, 10);
+                        const studentIndex = studentIndexStr === 'null' ? null : parseInt(studentIndexStr, 10);
+                        if (!isNaN(seatIndex) && seatIndex < newAssignments.length) {
+                            newAssignments[seatIndex].studentIndex = studentIndex;
+                        }
+                    });
+                    seatAssignments = newAssignments;
+
+                    renderSeatAssignments();
+                    showMessage('파일에서 자리 배치를 불러왔습니다.', 'green');
+
+                } catch (error) {
+                    console.error('파일 불러오기 오류:', error);
+                    showMessage(`파일을 불러오는 중 오류 발생: ${error.message}`, 'red');
+                } finally {
+                    event.target.value = ''; // 다음에도 같은 파일을 불러올 수 있도록 초기화
+                }
+            };
+            reader.readAsText(file, 'UTF-8');
+        });
+
+        // 7. PDF 내보내기
+        exportPdfBtn.addEventListener('click', () => {
+            const chartArea = document.getElementById('seating-chart-area');
+            const chartGrid = document.getElementById('seating-chart-grid');
+            const isTeacherView = document.getElementById('teacher-view-checkbox').checked;
+
+            if (chartGrid.children.length === 0) {
+                showMessage('내보낼 자리 배치도가 없습니다.', 'red');
+                return;
+            }
+
+            // 인쇄용 스타일 적용
+            const desks = chartArea.querySelectorAll('.desk');
+            desks.forEach(d => d.classList.add('print-mode'));
+            
+            const chalkboard = chartArea.querySelector('.bg-gray-200');
+
+            // 교사 시점인 경우, 회전 및 순서 변경 적용
+            if (isTeacherView) {
+                // DOM을 직접 조작하여 칠판을 아래로 이동
+                if (chalkboard) {
+                    chartArea.appendChild(chalkboard);
+                }
+                
+                // 자리와 학생 이름 회전
+                chartGrid.style.transform = 'rotate(180deg)';
+                desks.forEach(desk => {
+                    desk.style.transform = 'rotate(180deg)';
+                });
+            }
+
+            html2canvas(chartArea, { scale: 2 }).then(canvas => {
+                const imgData = canvas.toDataURL('image/png');
+                const pdf = new jsPDF({
+                    orientation: 'landscape',
+                    unit: 'px',
+                    format: [canvas.width, canvas.height]
+                });
+                pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+                
+                const today = new Date();
+                const dateString = `${today.getFullYear()}-${today.getMonth()+1}-${today.getDate()}`;
+                pdf.save(`자리배치도_${dateString}.pdf`);
+                
+            }).finally(() => {
+                // PDF 저장 후 또는 오류 발생 시 항상 스타일 초기화
+                desks.forEach(d => d.classList.remove('print-mode'));
+                if (isTeacherView) {
+                    // DOM 순서 원상복구
+                    if (chalkboard) {
+                        chartArea.insertBefore(chalkboard, chartGrid);
+                    }
+
+                    // 회전 스타일 원상복구
+                    chartGrid.style.transform = '';
+                    desks.forEach(desk => {
+                        desk.style.transform = '';
+                    });
+                }
+            });
+        });
+
+        saveCloudBtn.addEventListener('click', () => {
+            // 이 버튼은 사용자가 '저장' 버튼으로 다운로드한 .txt 파일을
+            // 수동으로 업로드할 수 있도록 구글 드라이브 폴더를 열어주는 역할을 합니다.
+            showMessage('구글 드라이브 폴더를 새 탭에서 엽니다. ‘저장’ 버튼으로 받은 txt 파일을 업로드하세요.', 'blue');
+            window.open('https://drive.google.com/drive/folders/1IKLXNRRIm4Yzmf_ofAfetGjiv7OnwdaD?usp=sharing', '_blank');
+        });
+
+        function showMessage(msg, color) {
+            statusMessage.textContent = msg;
+            statusMessage.className = `mt-4 text-sm font-medium text-${color}-600`;
+        }
+
+
+        // --- 오늘의 한마디 로직 ---
+        getRecommendationBtn.addEventListener('click', fetchRecommendation);
+
+        async function fetchRecommendation() {
+            loadingSpinner.classList.remove('hidden');
+            recommendationContent.innerHTML = '';
+            recommendationContent.appendChild(loadingSpinner);
+
+            const apiKey = ""; // 실제 사용 시 여기에 API 키를 입력하세요.
+            // gemini-2.5-flash-preview-09-2025 모델 사용 (권장)
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+
+            const systemPrompt = `당신은 한국 학생들을 위한 동기부여 전문가입니다. 학생들에게 영감을 줄 수 있는 사자성어 1개와 위인 명언 1개를 추천해주세요. 응답은 반드시 다음의 JSON 형식이어야 합니다:
+            {
+              "idiom": {
+                "hanja": "漢字",
+                "hangeul": "한글 독음",
+                "meaning": "자세한 뜻풀이"
+              },
+              "quote": {
+                "text": "위인의 명언 내용",
+                "author": "명언을 남긴 인물"
+              }
+            }`;
+            
+            const userQuery = "오늘 학생들에게 들려줄 좋은 사자성어와 명언을 추천해줘.";
+
+            // 지수 백오프 기반 재시도 로직 구현
+            const maxRetries = 5;
+            let retryCount = 0;
+
+            const callApi = async () => {
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            contents: [{ parts: [{ text: userQuery }] }],
+                            systemInstruction: { parts: [{ text: systemPrompt }] }
+                        })
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`API 오류: ${response.status}`);
+                    }
+
+                    const result = await response.json();
+                    const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
+                    if (!text) throw new Error('API 응답에서 텍스트를 찾을 수 없습니다.');
+                    
+                    const cleanedText = text.replace(/^```json\n?/, '').replace(/```$/, '');
+                    const data = JSON.parse(cleanedText);
+                    
+                    displayRecommendation(data);
+                } catch (error) {
+                    if (retryCount < maxRetries) {
+                        retryCount++;
+                        const delay = Math.pow(2, retryCount - 1) * 1000;
+                        setTimeout(callApi, delay);
+                    } else {
+                        console.error('Error fetching recommendation after retries:', error);
+                        recommendationContent.innerHTML = `<p class="text-red-500 text-center">추천을 받아오는 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.</p>`;
+                        loadingSpinner.classList.add('hidden');
+                    }
+                } finally {
+                    if (retryCount === 0 || retryCount === maxRetries) {
+                         loadingSpinner.classList.add('hidden');
+                    }
+                }
+            };
+
+            await callApi();
+        }
+
+        function displayRecommendation(data) {
+            recommendationContent.innerHTML = `
+                <div class="p-6 bg-indigo-50 rounded-lg">
+                    <h3 class="text-xl font-bold text-indigo-800">오늘의 사자성어</h3>
+                    <p class="text-4xl font-bold my-3">${data.idiom.hanja} <span class="text-2xl font-medium text-slate-600">(${data.idiom.hangeul})</span></p>
+                    <p class="text-slate-700">${data.idiom.meaning}</p>
+                </div>
+                <div class="p-6 bg-green-50 rounded-lg">
+                    <h3 class="text-xl font-bold text-green-800">오늘의 명언</h3>
+                    <p class="text-2xl italic my-3">"${data.quote.text}"</p>
+                    <p class="text-right font-semibold text-slate-600">- ${data.quote.author} -</p>
+                </div>
+            `;
+        }
+        
+        // --- 랜덤 뽑기 로직 ---
+        
+        // 뽑힌 학생 명단 렌더링
+        function renderPickedPresenters() {
+            if (pickedPresenters.length === 0) {
+                pickedPresentersList.innerHTML = '<p>아직 뽑힌 학생이 없습니다.</p>';
+            } else {
+                const listHtml = pickedPresenters.map(student => `<span class="inline-block bg-slate-200 rounded-full px-3 py-1 text-sm font-semibold text-slate-700 mr-2 mb-2">${student.name}</span>`).join('');
+                pickedPresentersList.innerHTML = listHtml;
+            }
+        }
+
+        // 이름 섞기 애니메이션 함수
+        function runShuffleAnimation(element, list, duration = 2000) {
+            if (isShuffling || list.length === 0) return;
+            isShuffling = true;
+
+            let shuffleInterval = setInterval(() => {
+                const randomIndex = Math.floor(Math.random() * list.length);
+                const randomStudent = list[randomIndex];
+                element.textContent = randomStudent.name;
+            }, 80);
+
+            return new Promise(resolve => {
+                setTimeout(() => {
+                    clearInterval(shuffleInterval);
+                    isShuffling = false;
+                    resolve();
+                }, duration);
+            });
+        }
+        
+        // 모둠 렌더링 함수
+        function renderGroups(groups) {
+            groupResults.innerHTML = '';
+            if (!groups || groups.length === 0) {
+                currentGroups = [];
+                return;
+            };
+
+            groups.forEach((group, index) => {
+                const groupCard = document.createElement('div');
+                groupCard.className = "group-card bg-slate-50 p-3 rounded-lg border";
+                let membersHtml = group.map(s => `<p class="text-sm">${s.number || ''}. ${s.name}</p>`).join('');
+                groupCard.innerHTML = `<h4 class="font-bold text-teal-700 border-b mb-2 pb-1">${index + 1} 모둠</h4>${membersHtml}`;
+                groupResults.appendChild(groupCard);
+            });
+            currentGroups = groups;
+        }
+
+        // 모둠 편성
+        formGroupsBtn.addEventListener('click', async () => {
+            if (isShuffling) return;
+            if (students.length === 0) {
+                groupShuffleBox.textContent = '학생 명단을 먼저 업로드하세요.';
+                return;
+            }
+
+            const groupCount = parseInt(groupCountInput.value, 10);
+            if (isNaN(groupCount) || groupCount <= 0) {
+                groupShuffleBox.textContent = '모둠 수는 1 이상이어야 합니다.';
+                return;
+            }
+            if (groupCount > students.length) {
+                groupShuffleBox.textContent = '모둠 수가 학생 수보다 많습니다.';
+                return;
+            }
+
+            groupResults.innerHTML = '';
+            await runShuffleAnimation(groupShuffleBox, students);
+            
+            let shuffledStudents = [...students].sort(() => Math.random() - 0.5);
+            let groups = Array(groupCount).fill(null).map(() => []);
+
+            shuffledStudents.forEach((student, index) => {
+                groups[index % groupCount].push(student);
+            });
+            
+            groupShuffleBox.textContent = "편성 완료!";
+            renderGroups(groups);
+        });
+
+        // 모둠 편성 저장
+        saveGroupsBtn.addEventListener('click', () => {
+            if (currentGroups.length === 0) {
+                groupShuffleBox.textContent = '저장할 모둠 편성 내용이 없습니다.';
+                return;
+            }
+
+            const fileContent = currentGroups.map((group, index) => {
+                const groupHeader = `#GROUP:${index + 1}`;
+                const members = group.map(s => `${s.number},${s.name}`).join('\n');
+                return `${groupHeader}\n${members}`;
+            }).join('\n\n');
+
+            const blob = new Blob([fileContent], { type: 'text/plain;charset=utf-8' });
+
+            const today = new Date();
+            const yyyy = today.getFullYear();
+            const mm = String(today.getMonth() + 1).padStart(2, '0');
+            const dd = String(today.getDate()).padStart(2, '0');
+            const fileName = `모둠편성_${yyyy}${mm}${dd}.txt`;
+
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = fileName;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            groupShuffleBox.textContent = '파일으로 저장했습니다.';
+        });
+
+        // 모둠 편성 불러오기
+        loadGroupsBtn.addEventListener('click', () => {
+            loadGroupsInput.click();
+        });
+
+        loadGroupsInput.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const text = e.target.result;
+                    if(!text.includes('#GROUP:')){
+                         throw new Error('지원하지 않는 파일 형식입니다.');
+                    }
+                    const groupBlocks = text.split('#GROUP:').filter(b => b.trim() !== '');
+                    
+                    const loadedGroups = groupBlocks.map(block => {
+                        const lines = block.split('\n').filter(l => l.trim() !== '');
+                        lines.shift(); // Remove the group number line
+                        return lines.map(line => {
+                            const [number, name] = line.split(',');
+                            return { number, name };
+                        });
+                    });
+                    
+                    renderGroups(loadedGroups);
+                    groupShuffleBox.textContent = "파일에서 모둠을 불러왔습니다!";
+                } catch (error) {
+                    console.error('모둠 파일 불러오기 오류:', error);
+                    groupShuffleBox.textContent = '파일 불러오기 오류! 형식을 확인하세요.';
+                } finally {
+                    event.target.value = ''; // Reset file input
+                }
+            };
+            reader.readAsText(file, 'UTF-8');
+        });
+
+        // 모둠 편성 PDF 내보내기
+        exportGroupsPdfBtn.addEventListener('click', () => {
+            if (currentGroups.length === 0) {
+                groupShuffleBox.textContent = 'PDF로 내보낼 모둠 내용이 없습니다.';
+                return;
+            }
+
+            const contentToExport = document.getElementById('group-results');
+            
+            const pdfTitle = document.createElement('h3');
+            pdfTitle.textContent = '모둠 편성 결과';
+            pdfTitle.className = 'text-2xl font-bold mb-4 text-center';
+            contentToExport.prepend(pdfTitle);
+
+            html2canvas(contentToExport, { scale: 2 }).then(canvas => {
+                pdfTitle.remove();
+
+                const imgData = canvas.toDataURL('image/png');
+                const pdf = new jsPDF({
+                    orientation: 'portrait',
+                    unit: 'px',
+                    format: [canvas.width, canvas.height]
+                });
+                pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+                
+                const today = new Date();
+                const dateString = `${today.getFullYear()}-${today.getMonth()+1}-${today.getDate()}`;
+                pdf.save(`모둠편성_${dateString}.pdf`);
+            }).catch(err => {
+                console.error("PDF 생성 오류:", err);
+                pdfTitle.remove();
+            });
+        });
+
+        // 발표자 뽑기
+        pickPresenterBtn.addEventListener('click', async () => {
+            if (isShuffling) return;
+            if (students.length === 0) {
+                presenterShuffleBox.textContent = '학생 명단을 먼저 업로드하세요.';
+                return;
+            }
+
+            if (availableForPicking.length === 0) {
+                presenterShuffleBox.textContent = "모두 뽑혔어요!";
+                return;
+            }
+
+            await runShuffleAnimation(presenterShuffleBox, availableForPicking);
+
+            const randomIndex = Math.floor(Math.random() * availableForPicking.length);
+            const winner = availableForPicking[randomIndex];
+
+            presenterShuffleBox.textContent = winner.name;
+            presenterShuffleBox.classList.add('text-red-500');
+            
+            pickedPresenters.push(winner);
+            renderPickedPresenters();
+
+            if (excludePickedCheckbox.checked) {
+                availableForPicking.splice(randomIndex, 1);
+            }
+            presenterStatus.textContent = `현재 ${availableForPicking.length}명 중 1명 뽑기`;
+        });
+
+        resetPresenterListBtn.addEventListener('click', () => {
+            availableForPicking = [...students];
+            pickedPresenters = [];
+            renderPickedPresenters();
+            presenterShuffleBox.textContent = "오늘의 발표자는?";
+            presenterShuffleBox.classList.remove('text-red-500');
+            presenterStatus.textContent = `현재 ${availableForPicking.length}명 중 1명 뽑기`;
+            presenterShuffleBox.textContent = '발표자 명단이 초기화되었습니다.';
+        });
+
+
+        // 초기 실행
+        switchView('seating'); // 첫 화면은 자리배치로 시작
+        fetchRecommendation(); // 오늘의 한마디 페이지 첫 로딩 시 바로 추천
+    </script>
+</body>
+</html>
